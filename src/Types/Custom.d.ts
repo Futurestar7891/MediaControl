@@ -26,5 +26,3 @@ declare module 'react-native-vector-icons/Feather' {
 declare module 'react-native-openanything';
 
 // module for the image to pdf
-
-

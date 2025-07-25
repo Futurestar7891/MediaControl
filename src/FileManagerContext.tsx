@@ -19,7 +19,7 @@ export const useFileManagerContext = () => {
 };
 
 export const FileManagerContextProvider = ({ children }: { children: React.ReactNode }) => {
-    const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/DCIM/myapp`;
+    const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/myapp`;
 
     const requestStoragePermissions = async () => {
         if (Platform.OS === 'android') {
