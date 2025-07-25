@@ -6,7 +6,6 @@ import Notes from './Screens/Notes';
 import Camera from './Screens/Camera';
 import { FileManagerContextProvider } from './FileManagerContext';
 
-
 export type RootStackParamsList = {
   Home: undefined;
   Notes: undefined;

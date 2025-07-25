@@ -1,11 +1,14 @@
 // FileManagerContext.tsx
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import RNFS from 'react-native-fs';
 import { Platform, Linking, Alert } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 export type FileManagerContextType = {
     appRootPath: string;
+    currentPath: string;
+    setCurrentPath: (path: string) => void;
+    refreshFiles: () => Promise<void>;
 };
 
 export const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -20,6 +23,7 @@ export const useFileManagerContext = () => {
 
 export const FileManagerContextProvider = ({ children }: { children: React.ReactNode }) => {
     const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/myapp`;
+    const [currentPath, setCurrentPath] = useState(appRootPath);
 
     const requestStoragePermissions = async () => {
         if (Platform.OS === 'android') {
@@ -58,6 +62,17 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
         return true;
     };
 
+    const refreshFiles = async () => {
+        try {
+            const exists = await RNFS.exists(currentPath);
+            if (!exists) {
+                await RNFS.mkdir(currentPath);
+            }
+        } catch (error) {
+            console.error('Error refreshing files:', error);
+        }
+    };
+
     useEffect(() => {
         const init = async () => {
             try {
@@ -76,10 +91,10 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
             }
         };
         init();
-    }, []);
+    }, [appRootPath]);
 
     return (
-        <FileManagerContext.Provider value={{ appRootPath }}>
+        <FileManagerContext.Provider value={{ appRootPath, currentPath, setCurrentPath, refreshFiles }}>
             {children}
         </FileManagerContext.Provider>
     );

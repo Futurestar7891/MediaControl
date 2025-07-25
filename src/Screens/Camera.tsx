@@ -1,22 +1,22 @@
-// 📄 Camera.tsx
 import {
     View,
     Alert,
     ActivityIndicator,
     StyleSheet,
 } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { launchCamera } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
+import RNFS from 'react-native-fs';
+import { createPdf } from 'react-native-pdf-from-image';
 import { useFileManagerContext } from '../FileManagerContext';
-import { saveAsImage, saveAsPdf } from '../utils/SaveImageOrPdf'
 
 const Camera = () => {
-    const { appRootPath } = useFileManagerContext();
-    const navigation = useNavigation();
     const [loading, setLoading] = useState(false);
+    const navigation = useNavigation();
+    const { currentPath } = useFileManagerContext();
 
-    const handleCapture = async () => {
+    const handleCapture = useCallback(async () => {
         try {
             const result = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
 
@@ -35,7 +35,7 @@ const Camera = () => {
 
             const timestamp = Date.now();
             const imageName = `IMG_${timestamp}.jpg`;
-            const imagePath = `${appRootPath}/${imageName}`;
+            const imagePath = `${currentPath}/${imageName}`;
             const pdfName = `IMG_${timestamp}.pdf`;
 
             Alert.alert(
@@ -46,34 +46,39 @@ const Camera = () => {
                         text: 'Image',
                         onPress: async () => {
                             setLoading(true);
-                            await saveAsImage(
-                                originalUri,
-                                imagePath,
-                                () => {
-                                    setLoading(false);
-                                    navigation.goBack();
-                                },
-                                () => {
-                                    setLoading(false);
-                                }
-                            );
+                            try {
+                                await RNFS.copyFile(originalUri, imagePath);
+                                Alert.alert('Saved', 'Image saved successfully');
+                            } catch (err) {
+                                console.error('Image save error:', err);
+                                Alert.alert('Error', 'Failed to save image.');
+                            } finally {
+                                setLoading(false);
+                                navigation.goBack();
+                            }
                         },
                     },
                     {
                         text: 'PDF',
                         onPress: async () => {
                             setLoading(true);
-                            await saveAsPdf(
-                                originalUri,
-                                pdfName,
-                                () => {
-                                    setLoading(false);
-                                    navigation.goBack();
-                                },
-                                () => {
-                                    setLoading(false);
-                                }
-                            );
+                            try {
+                                const { filePath: pdfCachePath } = await createPdf({
+                                    imagePaths: [originalUri],
+                                    name: pdfName,
+                                    paperSize: 'A4',
+                                });
+
+                                const destinationPath = `${currentPath}/${pdfName}`;
+                                await RNFS.copyFile(pdfCachePath, destinationPath);
+                                Alert.alert('Success', 'PDF saved Successfully');
+                            } catch (err) {
+                                console.error('PDF Save Error:', err);
+                                Alert.alert('Error', 'Failed to save PDF.');
+                            } finally {
+                                setLoading(false);
+                                navigation.goBack();
+                            }
                         },
                     },
                     {
@@ -89,11 +94,11 @@ const Camera = () => {
             Alert.alert('Error', 'Something went wrong while capturing the image.');
             navigation.goBack();
         }
-    };
+    }, [currentPath, navigation]);
 
     useEffect(() => {
         handleCapture();
-    }, []);
+    }, [handleCapture]);
 
     return (
         <View style={styles.container}>
