@@ -1,20 +1,43 @@
 // Home.tsx
-import React from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../Components/Header';
 import Footer from '../Components/Footer';
 import Section from '../Components/Section';
+import OptionMenu from '../Components/OptionMenu';
+import Rename from '../Components/Rename';
+import SelectionSlider from '../Components/SelectionSlider';
+import { useFileManagerContext } from '../FileManagerContext';
+import FileOperationModal from '../Components/FileOperationModel';
 
 export default function Home() {
+    const [menuVisible, setMenuVisible] = useState(false);
+    const { showrename, showOptionsModal,fileOperation } = useFileManagerContext();
+
     return (
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-            <StatusBar />
-            <View><Header /></View>
+            <View style={styles.headerContainer}>
+                <Header setMenu={setMenuVisible} />
+                {menuVisible && (
+                    <OptionMenu
+                        visible={menuVisible}
+                        setVisible={setMenuVisible}
+                        onClose={() => setMenuVisible(false)}
+                    />
+                )}
+            </View>
+
             <View style={styles.sectionContainer}>
                 <Section />
+                {showrename.value && <Rename />}
+                {showOptionsModal && <SelectionSlider />}
+                {fileOperation.visible && <FileOperationModal/>}
             </View>
-            <View><Footer /></View>
+
+            <View>
+                <Footer />
+            </View>
         </SafeAreaView>
     );
 }
@@ -22,11 +45,15 @@ export default function Home() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: 'black',
+        backgroundColor: '#3f3f3f',
+    },
+    headerContainer: {
+        position: 'relative',
+        zIndex: 1,
     },
     sectionContainer: {
         flex: 1,
-        marginBottom: 1,
-        backgroundColor: "white",
+        backgroundColor: 'white',
+        position: 'relative',
     },
 });

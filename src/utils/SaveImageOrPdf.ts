@@ -1,51 +1,54 @@
 // 📄 utils/saveImageOrPdf.ts
-import { Alert } from 'react-native';
+// import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { createPdf } from 'react-native-pdf-from-image';
-import { savePdfToMediaStore } from './savePdfToMediaStore';
+// import { savePdfToMediaStore } from './savePdfToMediaStore';
+
+type SaveResult = {
+  success: boolean;
+  message?: string;
+  filePath?: string;
+};
 
 export const saveAsImage = async (
   originalUri: string,
   destinationPath: string,
-  onSuccess: () => void,
-  onError: () => void,
-) => {
+): Promise<SaveResult> => {
   try {
-    await RNFS.copyFile(originalUri, destinationPath);
-    Alert.alert('Saved', 'Image saved successfully');
-    onSuccess();
-  } catch (err) {
-    console.error('Image save error:', err);
-    Alert.alert('Error', 'Failed to save image.');
-    onError();
+    const cleanUri = originalUri.replace('file://', '');
+    await RNFS.copyFile(cleanUri, destinationPath);
+    return { success: true, filePath: destinationPath };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Image save failed',
+    };
   }
 };
 
 export const saveAsPdf = async (
   originalUri: string,
   pdfName: string,
-  onSuccess: () => void,
-  onError: () => void,
-) => {
+  targetPath: string,
+): Promise<SaveResult> => {
   try {
+    const cleanUri = originalUri.replace('file://', '');
     const { filePath: pdfCachePath } = await createPdf({
-      imagePaths: [originalUri],
+      imagePaths: [cleanUri],
       name: pdfName,
       paperSize: 'A4',
     });
 
-    const success = await savePdfToMediaStore(pdfCachePath, pdfName);
+    const finalPath = `${targetPath}/${pdfName}.pdf`;
 
-    if (success) {
-      Alert.alert('Success', 'PDF saved Successfully');
-      onSuccess();
-    } else {
-      Alert.alert('Error', 'Failed to save PDF');
-      onError();
-    }
-  } catch (err) {
-    console.error('PDF Save Error:', err);
-    Alert.alert('Error', 'Failed to save PDF.');
-    onError();
+    // Simply copy the file to destination (works for both platforms)
+    await RNFS.copyFile(pdfCachePath, finalPath);
+
+    return { success: true, filePath: finalPath };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'PDF save failed',
+    };
   }
 };

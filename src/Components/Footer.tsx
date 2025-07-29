@@ -21,15 +21,15 @@ export default function Footer() {
     return (
         <View style={styles.container}>
             <TouchableOpacity onPress={handleHomePress}>
-                <FontAwesome name="home" size={36} color="#f2f2f2" />
+                <FontAwesome name="home" size={44} color="#f2f2f2" />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.navigate('Camera')}>
-                <Ionicons name="camera" size={36} color="#f2f2f2" />
+                <Ionicons name="camera" size={44} color="#f2f2f2" />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.navigate('Notes')}>
-                <Feather name="file-text" size={36} color="#f2f2f2" />
+                <Feather name="file-text" size={44} color="#f2f2f2" />
             </TouchableOpacity>
         </View>
     );
@@ -44,6 +44,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 35,
-        paddingVertical: 20,
+        paddingVertical: 10,
     },
 });

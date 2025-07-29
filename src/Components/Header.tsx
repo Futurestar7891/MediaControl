@@ -1,31 +1,38 @@
-import { StyleSheet, View, Image } from 'react-native';
+// Header.tsx
+import { StyleSheet, View, Image, TouchableOpacity } from 'react-native';
 import React from 'react';
-// import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-// import Feather from 'react-native-vector-icons/Feather';
 import Logo from '../assets/mediaapplogo.png';
 
-export default function Header() {
+type HeaderProps = {
+    setMenu: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export default function Header({ setMenu }: HeaderProps) {
     return (
         <View style={styles.container}>
             <View style={styles.logoContainer}>
                 <Image source={Logo} style={styles.logo} />
             </View>
 
-            <View style={styles.iconContainer}>
+            <TouchableOpacity
+                style={styles.iconContainer}
+                onPress={() => setMenu(prev => !prev)}
+            >
                 <Ionicons name="menu" size={42} color="white" />
-            </View>
+            </TouchableOpacity>
         </View>
     );
 }
 
+// ... keep your existing styles ...
 const styles = StyleSheet.create({
     container: {
         width: '100%',
         padding: 18,
         paddingLeft: 5,
         // borderColor: 'red',
-        borderWidth: 1,
+        // borderWidth: 1,
         backgroundColor: '#3f3f3f',
         flexDirection: 'row',
         justifyContent: 'space-between',

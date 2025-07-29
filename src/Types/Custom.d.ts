@@ -23,6 +23,11 @@ declare module 'react-native-vector-icons/Feather' {
   const Feather: typeof Icon;
   export default Feather;
 }
+declare module 'react-native-vector-icons/MaterialCommunityIcons' {
+  import { Icon } from 'react-native-vector-icons/Icon';
+  const Feather: typeof Icon;
+  export default Feather;
+}
 declare module 'react-native-openanything';
 
 // module for the image to pdf

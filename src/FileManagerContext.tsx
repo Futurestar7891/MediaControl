@@ -4,11 +4,37 @@ import RNFS from 'react-native-fs';
 import { Platform, Linking, Alert } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
+export type FileOperation = {
+    type: string;
+    items: RNFS.ReadDirItem[];
+    visible: boolean;
+};
+export type RenameState = {
+    title: string;
+    name: string;
+    value: boolean;
+    path: string;
+};
+
+export type SelectionState = {
+    mode: 'none' | 'single' | 'multiple';
+    selectedItems: RNFS.ReadDirItem[];
+};
+
 export type FileManagerContextType = {
     appRootPath: string;
     currentPath: string;
     setCurrentPath: (path: string) => void;
     refreshFiles: () => Promise<void>;
+    refreshkey: number;
+    showrename: RenameState;
+    setShowRename: React.Dispatch<React.SetStateAction<RenameState>>;
+    selection: SelectionState;
+    setSelection: React.Dispatch<React.SetStateAction<SelectionState>>;
+    showOptionsModal: boolean;
+    setShowOptionsModal: React.Dispatch<React.SetStateAction<boolean>>;
+    fileOperation: FileOperation;
+    setFileOperation: React.Dispatch<React.SetStateAction<FileOperation>>;
 };
 
 export const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -22,8 +48,27 @@ export const useFileManagerContext = () => {
 };
 
 export const FileManagerContextProvider = ({ children }: { children: React.ReactNode }) => {
-    const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/myapp`;
+    const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/Docify`;
     const [currentPath, setCurrentPath] = useState(appRootPath);
+    const [refreshkey, setRefreshKey] = useState(0);
+    const [showrename, setShowRename] = useState<RenameState>({
+        title: "",
+        value: false,
+        name: "",
+        path: ""
+
+    });
+    const [selection, setSelection] = useState<SelectionState>({
+        mode: 'none',
+        selectedItems: []
+    });
+    const [showOptionsModal, setShowOptionsModal] = useState(false);
+
+    const [fileOperation, setFileOperation] = useState<FileOperation>({
+        type: "",
+        items: [],
+        visible: false
+    })
 
     const requestStoragePermissions = async () => {
         if (Platform.OS === 'android') {
@@ -68,6 +113,7 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
             if (!exists) {
                 await RNFS.mkdir(currentPath);
             }
+            setRefreshKey(prev => prev + 1);
         } catch (error) {
             console.error('Error refreshing files:', error);
         }
@@ -94,7 +140,21 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
     }, [appRootPath]);
 
     return (
-        <FileManagerContext.Provider value={{ appRootPath, currentPath, setCurrentPath, refreshFiles }}>
+        <FileManagerContext.Provider value={{
+            setShowRename,
+            showrename,
+            refreshkey,
+            appRootPath,
+            currentPath,
+            setCurrentPath,
+            refreshFiles,
+            selection,
+            setSelection,
+            showOptionsModal,
+            setShowOptionsModal,
+            fileOperation,
+            setFileOperation
+        }}>
             {children}
         </FileManagerContext.Provider>
     );

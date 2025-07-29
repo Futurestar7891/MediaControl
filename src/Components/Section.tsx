@@ -1,3 +1,4 @@
+// Update the Section component
 import React, { useState, useCallback } from 'react';
 import {
     View,
@@ -14,8 +15,17 @@ import { useFileManagerContext } from '../FileManagerContext';
 import FileViewer from "react-native-file-viewer";
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
+
 const Section = () => {
-    const { appRootPath, currentPath, setCurrentPath } = useFileManagerContext();
+    const {
+        appRootPath,
+        currentPath,
+        setCurrentPath,
+        refreshkey,
+        selection,
+        setSelection,
+        setShowOptionsModal
+    } = useFileManagerContext();
     const [files, setFiles] = useState<RNFS.ReadDirItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -40,7 +50,9 @@ const Section = () => {
     useFocusEffect(
         useCallback(() => {
             loadFiles(currentPath);
-        }, [currentPath])
+            setSelection({ mode: 'none', selectedItems: [] });
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [currentPath, refreshkey])
     );
 
     const onRefresh = async () => {
@@ -50,6 +62,12 @@ const Section = () => {
     };
 
     const handleFilePress = async (file: RNFS.ReadDirItem) => {
+        if (selection.mode !== 'none') {
+            // In selection mode, toggle selection instead of opening
+            toggleSelection(file);
+            return;
+        }
+
         if (file.isDirectory()) {
             setCurrentPath(file.path);
             return;
@@ -67,27 +85,87 @@ const Section = () => {
         }
     };
 
+    const handleFileLongPress = (file: RNFS.ReadDirItem) => {
+        // Start selection mode if not already in it
+        if (selection.mode === 'none') {
+            setSelection({
+                mode: 'single',
+                selectedItems: [file]
+            });
+        }
+    };
+
+    const toggleSelection = (file: RNFS.ReadDirItem) => {
+        const isSelected = selection.selectedItems.some(item => item.path === file.path);
+        let newSelectedItems;
+
+        if (isSelected) {
+            newSelectedItems = selection.selectedItems.filter(item => item.path !== file.path);
+        } else {
+            newSelectedItems = [...selection.selectedItems, file];
+        }
+
+        const newMode = newSelectedItems.length === 0 ? 'none' :
+            newSelectedItems.length === 1 ? 'single' : 'multiple';
+
+        setSelection({
+            mode: newMode,
+            selectedItems: newSelectedItems
+        });
+    };
+
+    const isSelected = (file: RNFS.ReadDirItem) => {
+        return selection.selectedItems.some(item => item.path === file.path);
+    };
+
     const getFileIcon = (file: RNFS.ReadDirItem) => {
         if (file.isDirectory()) {
-            return '📁';
+            return <Ionicons name="folder" size={24} color="#FFD54F" />;
         }
 
         const extension = file.name.split('.').pop()?.toLowerCase();
         switch (extension) {
-            case 'jpg': case 'jpeg': case 'png': case 'gif': return '🖼️';
-            case 'pdf': return '📄';
-            case 'mp3': case 'wav': case 'aac': return '🎵';
-            case 'mp4': case 'mov': case 'avi': return '🎬';
-            case 'txt': case 'doc': case 'docx': return '📝';
-            default: return '📄';
+            case 'jpg': case 'jpeg': case 'png': case 'gif': case 'webp':
+                return <Ionicons name="image" size={24} color="#4FC3F7" />;
+            case 'pdf':
+                return <Ionicons name="document" size={24} color="#F44336" />;
+            case 'mp3': case 'wav': case 'aac': case 'flac':
+                return <Ionicons name="musical-notes" size={24} color="#9C27B0" />;
+            case 'mp4': case 'mov': case 'avi': case 'mkv':
+                return <Ionicons name="film" size={24} color="#7B1FA2" />;
+            case 'txt': case 'md':
+                return <Ionicons name="document-text" size={24} color="#78909C" />;
+            case 'doc': case 'docx':
+                return <Ionicons name="document" size={24} color="#1976D2" />;
+            case 'xls': case 'xlsx':
+                return <Ionicons name="document" size={24} color="#388E3C" />;
+            case 'ppt': case 'pptx':
+                return <Ionicons name="document" size={24} color="#F57C00" />;
+            case 'zip': case 'rar': case '7z':
+                return <Ionicons name="archive" size={24} color="#795548" />;
+            default:
+                return <Ionicons name="document" size={24} color="#9E9E9E" />;
         }
     };
 
     const renderItem = ({ item }: { item: RNFS.ReadDirItem }) => (
         <TouchableOpacity
-            style={styles.fileItem}
+            style={[
+                styles.fileItem,
+                isSelected(item) && styles.selectedFileItem
+            ]}
             onPress={() => handleFilePress(item)}
+            onLongPress={() => handleFileLongPress(item)}
+            delayLongPress={500} // 0.5 second delay for long press
         >
+            {selection.mode !== 'none' && (
+                <Ionicons
+                    name={isSelected(item) ? "checkbox" : "square-outline"}
+                    size={24}
+                    color={isSelected(item) ? "#4CAF50" : "#000"}
+                    style={styles.selectionIcon}
+                />
+            )}
             <Text style={styles.fileIcon}>{getFileIcon(item)}</Text>
             <Text style={styles.fileText}>{item.name}</Text>
         </TouchableOpacity>
@@ -97,6 +175,20 @@ const Section = () => {
         if (currentPath !== appRootPath) {
             const parentPath = currentPath.split('/').slice(0, -1).join('/');
             setCurrentPath(parentPath);
+        }
+    };
+
+    const handleOptionsPress = () => {
+        if (selection.mode !== 'none') {
+            setShowOptionsModal(true);
+        }
+    };
+
+    const handleSelectAll = () => {
+        if (selection.selectedItems.length === files.length) {
+            setSelection({ mode: 'none', selectedItems: [] });
+        } else {
+            setSelection({ mode: 'multiple', selectedItems: [...files] });
         }
     };
 
@@ -116,11 +208,24 @@ const Section = () => {
                     />
                 </TouchableOpacity>
                 <Text style={styles.pathText} numberOfLines={1} ellipsizeMode="middle">
-                    {currentPath.replace(appRootPath, 'MyApp')}
+                    {currentPath.replace(appRootPath, 'Docify')}
                 </Text>
-                <TouchableOpacity style={styles.sortButton}>
-                    <Ionicons name="filter" size={20} color="#555" />
-                </TouchableOpacity>
+                {selection.mode === 'none' ? (
+                    <TouchableOpacity style={styles.sortButton}>
+                        <Ionicons name="filter" size={20} color="#555" />
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity style={styles.sortButton} onPress={handleOptionsPress}>
+                        <Ionicons name="ellipsis-horizontal" size={20} color="#555" />
+                    </TouchableOpacity>
+                )}
+                {selection.mode !== 'none' && (
+                    <TouchableOpacity style={styles.selectAllButton} onPress={handleSelectAll}>
+                        <Text style={styles.selectAllText}>
+                            {selection.selectedItems.length === files.length ? 'Deselect all' : 'Select all'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             <FlatList
@@ -173,6 +278,14 @@ const styles = StyleSheet.create({
         padding: 4,
         marginLeft: 8,
     },
+    selectAllButton: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    selectAllText: {
+        color: '#1976D2',
+        fontSize: 16,
+    },
     listContent: {
         padding: 16,
     },
@@ -199,9 +312,15 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
     },
+    selectedFileItem: {
+        backgroundColor: '#E3F2FD',
+    },
     fileIcon: {
         fontSize: 24,
         marginRight: 16,
+    },
+    selectionIcon: {
+        marginRight: 12,
     },
     fileText: {
         fontSize: 16,
