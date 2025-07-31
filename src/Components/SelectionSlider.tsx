@@ -174,7 +174,7 @@ const SelectionSlider = () => {
     };
 
     const handleMove = () => {
-         const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/myapp`;
+        const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/myapp`;
         setFileOperation({
             type: 'move',
             visible: true,

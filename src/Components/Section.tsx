@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useFileManagerContext } from '../FileManagerContext';
 import FileViewer from "react-native-file-viewer";
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { getFileIcon,FileIcon } from '../utils/SectionHelper';
 
 
 const Section = () => {
@@ -24,10 +25,15 @@ const Section = () => {
         refreshkey,
         selection,
         setSelection,
-        setShowOptionsModal
+        setShowOptionsModal,
+        setFilter,
+        filter
     } = useFileManagerContext();
     const [files, setFiles] = useState<RNFS.ReadDirItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [fileIcons, setFileIcons] = useState<Record<string, FileIcon>>({});
+
+
 
     const loadFiles = async (path: string) => {
         try {
@@ -35,24 +41,55 @@ const Section = () => {
             if (!exists) {
                 await RNFS.mkdir(path);
             }
-            const fileList = await RNFS.readDir(path);
-            setFiles(fileList.sort((a, b) => {
+
+            let fileList = await RNFS.readDir(path);
+            const getTimeSafe = (file: RNFS.ReadDirItem) => file.mtime?.getTime() ?? 0;
+            // Sorting logic based on filter.sortMode
+            fileList = fileList.sort((a, b) => {
+                // Folders always on top
                 if (a.isDirectory() && !b.isDirectory()) return -1;
                 if (!a.isDirectory() && b.isDirectory()) return 1;
-                return a.name.localeCompare(b.name);
-            }));
+
+                switch (filter.sortMode) {
+                    case 'a-z':
+                        return a.name.localeCompare(b.name);
+                    case 'z-a':
+                        return b.name.localeCompare(a.name);
+                    case 'newest':
+                        return getTimeSafe(b) - getTimeSafe(a);
+                    case 'oldest':
+                        return getTimeSafe(a) - getTimeSafe(b);
+                    default:
+                        return 0;
+                }
+            });
+
+            setFiles(fileList);
+
+            // Load icons for each file
+            const iconMap: Record<string, FileIcon> = {};
+            await Promise.all(
+                fileList.map(async (file) => {
+                    iconMap[file.path] = await getFileIcon(file);
+                })
+            );
+            setFileIcons(iconMap);
+
         } catch (error) {
             console.error('Error reading directory:', error);
             Alert.alert('Error', 'Failed to load files.');
         }
     };
 
+
+
+
     useFocusEffect(
         useCallback(() => {
             loadFiles(currentPath);
             setSelection({ mode: 'none', selectedItems: [] });
             // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [currentPath, refreshkey])
+        }, [currentPath, refreshkey,filter.sortMode])
     );
 
     const onRefresh = async () => {
@@ -117,36 +154,34 @@ const Section = () => {
     const isSelected = (file: RNFS.ReadDirItem) => {
         return selection.selectedItems.some(item => item.path === file.path);
     };
+    //     if (file.isDirectory()) {
+    //         return <Ionicons name="folder" size={24} color="#FFD54F" />;
+    //     }
 
-    const getFileIcon = (file: RNFS.ReadDirItem) => {
-        if (file.isDirectory()) {
-            return <Ionicons name="folder" size={24} color="#FFD54F" />;
-        }
-
-        const extension = file.name.split('.').pop()?.toLowerCase();
-        switch (extension) {
-            case 'jpg': case 'jpeg': case 'png': case 'gif': case 'webp':
-                return <Ionicons name="image" size={24} color="#4FC3F7" />;
-            case 'pdf':
-                return <Ionicons name="document" size={24} color="#F44336" />;
-            case 'mp3': case 'wav': case 'aac': case 'flac':
-                return <Ionicons name="musical-notes" size={24} color="#9C27B0" />;
-            case 'mp4': case 'mov': case 'avi': case 'mkv':
-                return <Ionicons name="film" size={24} color="#7B1FA2" />;
-            case 'txt': case 'md':
-                return <Ionicons name="document-text" size={24} color="#78909C" />;
-            case 'doc': case 'docx':
-                return <Ionicons name="document" size={24} color="#1976D2" />;
-            case 'xls': case 'xlsx':
-                return <Ionicons name="document" size={24} color="#388E3C" />;
-            case 'ppt': case 'pptx':
-                return <Ionicons name="document" size={24} color="#F57C00" />;
-            case 'zip': case 'rar': case '7z':
-                return <Ionicons name="archive" size={24} color="#795548" />;
-            default:
-                return <Ionicons name="document" size={24} color="#9E9E9E" />;
-        }
-    };
+    //     const extension = file.name.split('.').pop()?.toLowerCase();
+    //     switch (extension) {
+    //         case 'jpg': case 'jpeg': case 'png': case 'gif': case 'webp':
+    //             return <Ionicons name="image" size={24} color="#4FC3F7" />;
+    //         case 'pdf':
+    //             return <Ionicons name="document" size={24} color="#F44336" />;
+    //         case 'mp3': case 'wav': case 'aac': case 'flac':
+    //             return <Ionicons name="musical-notes" size={24} color="#9C27B0" />;
+    //         case 'mp4': case 'mov': case 'avi': case 'mkv':
+    //             return <Ionicons name="film" size={24} color="#7B1FA2" />;
+    //         case 'txt': case 'md':
+    //             return <Ionicons name="document-text" size={24} color="#78909C" />;
+    //         case 'doc': case 'docx':
+    //             return <Ionicons name="document" size={24} color="#1976D2" />;
+    //         case 'xls': case 'xlsx':
+    //             return <Ionicons name="document" size={24} color="#388E3C" />;
+    //         case 'ppt': case 'pptx':
+    //             return <Ionicons name="document" size={24} color="#F57C00" />;
+    //         case 'zip': case 'rar': case '7z':
+    //             return <Ionicons name="archive" size={24} color="#795548" />;
+    //         default:
+    //             return <Ionicons name="document" size={24} color="#9E9E9E" />;
+    //     }
+    // };
 
     const renderItem = ({ item }: { item: RNFS.ReadDirItem }) => (
         <TouchableOpacity
@@ -166,7 +201,13 @@ const Section = () => {
                     style={styles.selectionIcon}
                 />
             )}
-            <Text style={styles.fileIcon}>{getFileIcon(item)}</Text>
+            <Ionicons
+                style={styles.fileIcon}
+                name={fileIcons[item.path]?.name || 'document'}
+                size={24}
+                color={fileIcons[item.path]?.color}
+            />
+
             <Text style={styles.fileText}>{item.name}</Text>
         </TouchableOpacity>
     );
@@ -211,7 +252,9 @@ const Section = () => {
                     {currentPath.replace(appRootPath, 'Docify')}
                 </Text>
                 {selection.mode === 'none' ? (
-                    <TouchableOpacity style={styles.sortButton}>
+                    <TouchableOpacity onPress={()=>setFilter((prev)=>({
+                        ...prev,showFilter:true
+                    }))} style={styles.sortButton}>
                         <Ionicons name="filter" size={20} color="#555" />
                     </TouchableOpacity>
                 ) : (

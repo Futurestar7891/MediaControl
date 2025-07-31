@@ -1,14 +1,15 @@
-// FileManagerContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import RNFS from 'react-native-fs';
 import { Platform, Linking, Alert } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type FileOperation = {
     type: string;
     items: RNFS.ReadDirItem[];
     visible: boolean;
 };
+
 export type RenameState = {
     title: string;
     name: string;
@@ -19,6 +20,12 @@ export type RenameState = {
 export type SelectionState = {
     mode: 'none' | 'single' | 'multiple';
     selectedItems: RNFS.ReadDirItem[];
+};
+
+export type FilterState = {
+    fileMode: 'list' | 'icon';
+    sortMode: 'a-z' | 'z-a' | 'oldest' | 'newest';
+    showFilter: boolean;
 };
 
 export type FileManagerContextType = {
@@ -35,6 +42,8 @@ export type FileManagerContextType = {
     setShowOptionsModal: React.Dispatch<React.SetStateAction<boolean>>;
     fileOperation: FileOperation;
     setFileOperation: React.Dispatch<React.SetStateAction<FileOperation>>;
+    filter: FilterState;
+    setFilter: React.Dispatch<React.SetStateAction<FilterState>>;
 };
 
 export const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -56,19 +65,22 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
         value: false,
         name: "",
         path: ""
-
     });
     const [selection, setSelection] = useState<SelectionState>({
         mode: 'none',
         selectedItems: []
     });
     const [showOptionsModal, setShowOptionsModal] = useState(false);
-
     const [fileOperation, setFileOperation] = useState<FileOperation>({
         type: "",
         items: [],
         visible: false
-    })
+    });
+    const [filter, setFilter] = useState<FilterState>({
+        fileMode: 'list',
+        sortMode: 'a-z',
+        showFilter: false
+    });
 
     const requestStoragePermissions = async () => {
         if (Platform.OS === 'android') {
@@ -79,15 +91,11 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
                         : PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE;
 
                 let result = await check(permission);
-                console.log(`Checking permission (${permission}):`, result);
-
                 if (result === RESULTS.DENIED) {
                     result = await request(permission);
-                    console.log(`Request result (${permission}):`, result);
                 }
 
                 if (result === RESULTS.BLOCKED || result === RESULTS.LIMITED) {
-                    console.error('Storage permissions permanently denied. Please enable in settings.');
                     Alert.alert(
                         'Storage Permission Required',
                         `Please enable storage permissions in Settings > Apps > ManageMedia > Permissions > ${Platform.Version >= 33 ? 'Photos and videos' : 'Storage'}.`,
@@ -119,21 +127,41 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
         }
     };
 
+    const loadFilterState = async () => {
+        try {
+            const savedState = await AsyncStorage.getItem('@FileManager/filterState');
+            if (savedState) {
+                setFilter(JSON.parse(savedState));
+            }
+        } catch (error) {
+            console.error('Failed to load filter state:', error);
+        }
+    };
+
+    const saveFilterState = async (newState: FilterState) => {
+        try {
+            await AsyncStorage.setItem('@FileManager/filterState', JSON.stringify(newState));
+        } catch (error) {
+            console.error('Failed to save filter state:', error);
+        }
+    };
+
+    useEffect(() => {
+        loadFilterState();
+    }, []);
+
+    useEffect(() => {
+        saveFilterState(filter);
+    }, [filter]);
+
     useEffect(() => {
         const init = async () => {
-            try {
-                const hasPermission = await requestStoragePermissions();
-                if (!hasPermission) {
-                    console.error('Storage permissions denied');
-                    return;
-                }
-                const exists = await RNFS.exists(appRootPath);
-                if (!exists) {
-                    await RNFS.mkdir(appRootPath);
-                    console.log(`Created folder at ${appRootPath}`);
-                }
-            } catch (e) {
-                console.error("Folder creation error:", e);
+            const hasPermission = await requestStoragePermissions();
+            if (!hasPermission) return;
+
+            const exists = await RNFS.exists(appRootPath);
+            if (!exists) {
+                await RNFS.mkdir(appRootPath);
             }
         };
         init();
@@ -141,19 +169,21 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
 
     return (
         <FileManagerContext.Provider value={{
-            setShowRename,
-            showrename,
-            refreshkey,
             appRootPath,
             currentPath,
             setCurrentPath,
             refreshFiles,
+            refreshkey,
+            showrename,
+            setShowRename,
             selection,
             setSelection,
             showOptionsModal,
             setShowOptionsModal,
             fileOperation,
-            setFileOperation
+            setFileOperation,
+            filter,
+            setFilter
         }}>
             {children}
         </FileManagerContext.Provider>
