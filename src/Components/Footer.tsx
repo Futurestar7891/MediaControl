@@ -1,6 +1,6 @@
 // Footer.tsx
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
-import React from 'react';
+// import React from 'react';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';

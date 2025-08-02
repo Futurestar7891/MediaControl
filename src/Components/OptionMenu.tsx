@@ -1,18 +1,18 @@
-import { StyleSheet, Text, TouchableOpacity, Animated,View,Alert } from 'react-native';
-import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, TouchableOpacity, Animated, View, Alert } from 'react-native';
+import { useEffect, useRef } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {useFileManagerContext,  } from '../FileManagerContext';
+import { useFileManagerContext, } from '../FileManagerContext';
 // import { createFolder } from '../utils/CreateFolder';
 
 type OptionMenuProps = {
     visible: boolean;
-    onClose: () => void; 
-    setVisible:(value:boolean)=>void
+    onClose: () => void;
+    setVisible: (value: boolean) => void
 };
 
-export default function OptionMenu({ visible, onClose,setVisible }: OptionMenuProps) {
+export default function OptionMenu({ visible, onClose, setVisible }: OptionMenuProps) {
     const slideAnim = useRef(new Animated.Value(50)).current;
-    const {setShowRename}=useFileManagerContext();
+    const { setShowRename } = useFileManagerContext();
 
     useEffect(() => {
         Animated.timing(slideAnim, {
@@ -32,12 +32,12 @@ export default function OptionMenu({ visible, onClose,setVisible }: OptionMenuPr
                         ...prev,
                         title: 'Create Folder',
                         value: true,
-                        name:"create"
+                        name: "create"
                     }));
 
 
                     break;
-                case 'upload':
+                case 'import':
                     // Handle upload
                     break;
                 case 'createpdf':
@@ -47,7 +47,7 @@ export default function OptionMenu({ visible, onClose,setVisible }: OptionMenuPr
                     // Handle PDF merging
                     break;
             }
-          setVisible(!visible);
+            setVisible(!visible);
         } catch (error) {
             console.error('Error:', error);
             Alert.alert('Error', `Failed to perform ${name} operation`);
@@ -63,19 +63,19 @@ export default function OptionMenu({ visible, onClose,setVisible }: OptionMenuPr
                 },
             ]}
         >
-          
+
             <View>
-                <Ionicons  onPress={onClose} name="arrow-back" width={24} size={28} color={'green'} />
+                <Ionicons onPress={onClose} name="arrow-back" width={24} size={28} color={'green'} />
             </View>
             <View style={styles.btncontainer}>
-                <TouchableOpacity onPress={()=>handleFunction("create")}style={styles.btn}>
+                <TouchableOpacity onPress={() => handleFunction("create")} style={styles.btn}>
                     <Ionicons name="add" size={28} color={'#ffffff'} />
                     <Text>Create Folder</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => handleFunction("upload")} style={styles.btn}>
-                    <Ionicons name="cloud-upload" size={28} color={'#ffffff'} />
-                    <Text>Upload Folder</Text>
+                <TouchableOpacity onPress={() => handleFunction("import")} style={styles.btn}>
+                    <Ionicons name="cloud-download" size={28} color={'#ffffff'} />
+                    <Text>Import file/Folder</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => handleFunction("createpdf")} style={styles.btn}>
@@ -88,7 +88,7 @@ export default function OptionMenu({ visible, onClose,setVisible }: OptionMenuPr
                     <Text>Merge Pdf</Text>
                 </TouchableOpacity>
             </View>
-          
+
         </Animated.View>
     );
 }
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
         right: 0,
         top: 0,
         width: '50%',
-        minHeight:300,
+        minHeight: 300,
         padding: 10,
         backgroundColor: '#3f3f3f',
         shadowColor: '#000',
@@ -108,21 +108,21 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
         zIndex: 100,
-        justifyContent:"flex-start",
-        gap:10
+        justifyContent: "flex-start",
+        gap: 10
     },
-    btncontainer:{
-        flex:1,
-        justifyContent:"flex-start",
+    btncontainer: {
+        flex: 1,
+        justifyContent: "flex-start",
         gap: 10,
     },
     btn: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 8,
-        
+
         gap: 10,
     },
 
- 
+
 });

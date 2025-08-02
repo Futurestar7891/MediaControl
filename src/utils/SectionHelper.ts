@@ -1,93 +1,87 @@
 import RNFS from 'react-native-fs';
-// import { createThumbnail } from 'react-native-create-thumbnail';
-// import PdfThumbnail from 'react-native-pdf-thumbnail';
 
-export type FileIcon =
-  | { name: 'folder',color:string }
-  | { name: 'image'; source: string,color:string }
-  | { name: 'film'; source: string,color:string }
-  | { name: 'document'; source?: string,color:string }
-  | { name: 'musical-notes',color:string }
-  | { name: string,color:string }; // fallback
+// Import all icon assets at the top
+import FolderIcon from '../assets/folder.png';
+import PdfIcon from '../assets/pdf.png';
+import AudioIcon from '../assets/music.png';
+import VideoIcon from '../assets/ppt.png';
+import DocIcon from '../assets/txt.png';
+
+import DefaultIcon from '../assets/icon.png';
+
+export type FileIcon = {
+  name: string;
+  color: string;
+  source?: string | number; // Can be URI or imported asset
+};
 
 export const getFileIcon = async (
   file: RNFS.ReadDirItem,
 ): Promise<FileIcon> => {
   if (file.isDirectory()) {
-    return { name: 'folder',color:"orange" };
+    return {
+      name: 'folder',
+      color: '#FFA500', // Orange
+      source: FolderIcon,
+    };
   }
 
-  const extension = file.name.split('.').pop()?.toLowerCase();
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
 
+  // Image files - use actual file as source
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(extension)) {
+    return {
+      name: 'image',
+      color: '#4CAF50', // Green
+      source: `file://${file.path}`, // Use actual file for thumbnails
+    };
+  }
+
+  // Audio files
+  if (['mp3', 'wav', 'aac', 'flac', 'm4a'].includes(extension)) {
+    return {
+      name: 'musical-notes',
+      color: '#9C27B0', // Purple
+      source: AudioIcon,
+    };
+  }
+
+  // Video files
+  if (['mp4', 'mov', 'avi', 'mkv', 'flv'].includes(extension)) {
+    return {
+      name: 'film',
+      color: '#2196F3', // Blue
+      source: VideoIcon,
+    };
+  }
+
+  // Documents
   switch (extension) {
-    // 🖼️ Image preview
-    case 'jpg':
-    case 'jpeg':
-    case 'png':
-    case 'gif':
-    case 'webp':
-      return {
-        name: 'image',
-        source: `file://${file.path}`,
-        color:"green"
-      };
-
-    // 📄 PDF thumbnail
     case 'pdf':
-      try {
-        // const { uri } = await PdfThumbnail.generate(`file://${file.path}`, 0);
-        return {
-          name: 'document',
-        //   source: uri,
-        color:"green"
-        };
-      } catch (e) {
-        console.warn('PDF thumbnail error:', e);
-        return { name: 'document',color:"green" };
-      }
-
-    // 🎥 Video thumbnail
-    case 'mp4':
-    case 'mov':
-    case 'avi':
-    case 'mkv':
-      try {
-        // const { path: thumbPath } = await createThumbnail({
-        //   url: `file://${file.path}`,
-        // });
-        return {
-          name: 'film',
-        //   source: thumbPath,
-        color:"green"
-        };
-      } catch (e) {
-        console.warn('Video thumbnail error:', e);
-        return { name: 'film',color:"blue" };
-      }
-
-    // 🎵 Audio
-    case 'mp3':
-    case 'wav':
-    case 'aac':
-    case 'flac':
-      return { name: 'musical-notes',color:"grey" };
-
-    // 🧾 Other file types
-    case 'txt':
-    case 'md':
+      return {
+        name: 'document',
+        color: '#F44336', // Red
+        source: PdfIcon,
+      };
     case 'doc':
     case 'docx':
-    case 'xls':
-    case 'xlsx':
-    case 'ppt':
-    case 'pptx':
-    case 'zip':
-    case 'rar':
-    case '7z':
-      return { name: 'document',color:"green" };
-
-   
+      return {
+        name: 'document',
+        color: '#2B579A', // Office Blue
+        source: DocIcon,
+      };
+    case 'txt':
+    case 'md':
+      return {
+        name: 'document-text',
+        color: '#607D8B', // Grey
+        source: DocIcon,
+      };
     default:
-      return { name: 'document',color:"green" };
+      return {
+        name: 'document',
+        color: '#795548', // Brown
+        source: DefaultIcon,
+      };
   }
 };

@@ -1,4 +1,3 @@
-// FileOperationModal.tsx
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import RNFS from 'react-native-fs';
@@ -11,9 +10,11 @@ const FileOperationModal = () => {
         currentPath,
         refreshFiles,
         setSelection,
+        trackFile,
+        untrackFile
     } = useFileManagerContext();
 
-    // ✅ Recursively copy directory and contents
+    // Recursively copy directory and contents while tracking files
     const copyDirectory = async (source: string, destination: string) => {
         await RNFS.mkdir(destination);
         const items = await RNFS.readDir(source);
@@ -24,19 +25,34 @@ const FileOperationModal = () => {
                 await copyDirectory(item.path, targetPath);
             } else {
                 await RNFS.copyFile(item.path, targetPath);
+                // Track the newly copied file
+                await trackFile(targetPath);
             }
         }
     };
 
-    // ✅ Move/copy files or folders
+    // Recursively track all files in a directory
+    const trackDirectoryFiles = async (path: string) => {
+        const items = await RNFS.readDir(path);
+        for (const item of items) {
+            if (item.isDirectory()) {
+                await trackDirectoryFiles(item.path);
+            } else {
+                await trackFile(item.path);
+            }
+        }
+    };
+
+    // Execute the file operation (move or copy)
     const executeOperation = async () => {
         try {
             if (!fileOperation.type || !fileOperation.items?.length) return;
 
+            // Validate all items first
             for (const item of fileOperation.items) {
                 const destination = `${currentPath}/${item.name}`;
 
-                // ❌ Prevent moving/copying a folder inside itself or its subdirectory
+                // Prevent moving/copying a folder inside itself
                 if (item.isDirectory() && currentPath.startsWith(item.path)) {
                     Alert.alert(
                         'Invalid Operation',
@@ -45,9 +61,8 @@ const FileOperationModal = () => {
                     return;
                 }
 
-                // ❌ Prevent overwriting if file/folder already exists at destination
-                const alreadyExists = await RNFS.exists(destination);
-                if (alreadyExists) {
+                // Prevent overwriting existing files
+                if (await RNFS.exists(destination)) {
                     Alert.alert(
                         'File Exists',
                         `A file or folder named "${item.name}" already exists in this location.\nPlease rename it before trying again.`
@@ -56,25 +71,39 @@ const FileOperationModal = () => {
                 }
             }
 
-            const operations = fileOperation.items.map(async (item) => {
+            // Process each item
+            for (const item of fileOperation.items) {
                 const destination = `${currentPath}/${item.name}`;
 
                 if (item.isDirectory()) {
                     if (fileOperation.type === 'copy') {
                         await copyDirectory(item.path, destination);
+                        // Track the directory and its contents
+                        await trackFile(destination);
+                        await trackDirectoryFiles(destination);
                     } else {
+                        // Move directory
                         await RNFS.moveFile(item.path, destination);
+                        // Untrack old path and track new path
+                        await untrackFile(item.path);
+                        await trackFile(destination);
+                        // Track all files in the moved directory
+                        await trackDirectoryFiles(destination);
                     }
                 } else {
                     if (fileOperation.type === 'copy') {
                         await RNFS.copyFile(item.path, destination);
+                        // Track the new file
+                        await trackFile(destination);
                     } else {
                         await RNFS.moveFile(item.path, destination);
+                        // Untrack old path and track new path
+                        await untrackFile(item.path);
+                        await trackFile(destination);
                     }
                 }
-            });
+            }
 
-            await Promise.all(operations);
             await refreshFiles();
             setSelection({ mode: 'none', selectedItems: [] });
             setFileOperation({ type: '', visible: false, items: [] });
@@ -84,8 +113,6 @@ const FileOperationModal = () => {
             Alert.alert('Error', `Failed to ${fileOperation.type} files`);
         }
     };
-
-
 
     const handleCancel = () => {
         setFileOperation({ ...fileOperation, visible: false });

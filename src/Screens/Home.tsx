@@ -14,7 +14,7 @@ import Filters from '../Components/Filters';
 
 export default function Home() {
     const [menuVisible, setMenuVisible] = useState(false);
-    const { showrename, showOptionsModal,fileOperation,filter } = useFileManagerContext();
+    const { showrename, showOptionsModal, fileOperation, filter } = useFileManagerContext();
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -33,8 +33,8 @@ export default function Home() {
                 <Section />
                 {showrename.value && <Rename />}
                 {showOptionsModal && <SelectionSlider />}
-                {fileOperation.visible && <FileOperationModal/>}
-                {filter.showFilter && <Filters/>}
+                {fileOperation.visible && <FileOperationModal />}
+                {filter.showFilter && <Filters />}
 
             </View>
 

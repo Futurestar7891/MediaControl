@@ -1,28 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View, TouchableOpacity, Alert } from 'react-native';
+import {
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+    TouchableOpacity,
+    Alert,
+} from 'react-native';
+import { useEffect, useState } from 'react';
 import RNFS from 'react-native-fs';
 import { useFileManagerContext } from '../FileManagerContext';
 
-
 const Rename = () => {
-    const { currentPath, refreshFiles, setShowRename, showrename } = useFileManagerContext();
+    const { currentPath, refreshFiles, setShowRename, showrename, trackFile } = useFileManagerContext();
     const [newName, setNewName] = useState(showrename.name || '');
     const [error, setError] = useState('');
     const [originalExtension, setOriginalExtension] = useState('');
 
     useEffect(() => {
-        if (!showrename.title.includes("Rename")) {
-            // Folder creation
+        if (!showrename.title.includes('Rename')) {
+            // Folder creation mode
             setNewName(`Folder_${new Date().toISOString().replace(/[:.]/g, '-')}`);
             setOriginalExtension('');
         } else {
-            // File/folder rename
+            // Rename mode
             setNewName(showrename.name || '');
-
-            // Extract original extension if it's a file (not directory)
             if (!showrename.path.endsWith('/')) {
                 const lastDotIndex = showrename.name.lastIndexOf('.');
-                if (lastDotIndex > 0) {  // Only if there's an extension
+                if (lastDotIndex > 0) {
                     setOriginalExtension(showrename.name.substring(lastDotIndex));
                 } else {
                     setOriginalExtension('');
@@ -37,18 +41,15 @@ const Rename = () => {
     const validateName = (name: string) => {
         const trimmedName = name.trim();
 
-        // Empty name check
         if (!trimmedName) {
             return 'Name cannot be empty';
         }
 
-        // Check for invalid characters (including dots for folders)
         const invalidChars = /[\\/:*?"<>|]/;
         if (invalidChars.test(trimmedName)) {
             return 'Name contains invalid characters (\\ / : * ? " < > |)';
         }
 
-        // Special check for dots in folder names
         if (showrename.path.endsWith('/') && trimmedName.includes('.')) {
             return 'Folder names cannot contain dots';
         }
@@ -64,68 +65,82 @@ const Rename = () => {
             return null;
         }
 
-        // If it's a folder, return as-is (dots already checked)
         if (showrename.path.endsWith('/')) {
             return trimmedName;
         }
 
-        // For files with original extension
         if (originalExtension) {
             const lastDotIndex = trimmedName.lastIndexOf('.');
 
-            // If the new name already has the same extension, return as-is
             if (trimmedName.endsWith(originalExtension)) {
                 return trimmedName;
             }
 
-            // If the new name has a different extension, preserve the original
             if (lastDotIndex > 0) {
                 return trimmedName.substring(0, lastDotIndex) + originalExtension;
             }
 
-            // If no extension in new name, add the original
             return trimmedName + originalExtension;
         }
 
-        // For files with no original extension
         return trimmedName;
     };
 
     const handleAction = async () => {
         const finalName = getFinalName(newName);
-        if (!finalName) return; // Error already set by getFinalName
+        if (!finalName) return;
 
         try {
-            if (showrename.title.includes("Rename")) {
-                // Rename existing file/folder
+            if (showrename.title.includes('Rename')) {
                 const oldPath = showrename.path;
                 const newPath = `${currentPath}/${finalName}`;
 
                 if (await RNFS.exists(newPath)) {
-                    setError(`${showrename.title.includes("Folder") ? 'Folder' : 'File'} already exists`);
+                    setError(
+                        `${showrename.title.includes('Folder') ? 'Folder' : 'File'} already exists`
+                    );
                     return;
                 }
 
-                await RNFS.moveFile(oldPath, newPath);
+                if (oldPath.endsWith('/')) {
+                    await RNFS.mkdir(newPath);
+                    const files = await RNFS.readDir(oldPath);
+                    for (const file of files) {
+                        const destPath = `${newPath}/${file.name}`;
+                        if (file.isDirectory()) {
+                            await RNFS.mkdir(destPath);
+                        } else {
+                            await RNFS.copyFile(file.path, destPath);
+                            await trackFile(destPath);
+                        }
+                    }
+                    await RNFS.unlink(oldPath);
+                } else {
+                    await RNFS.moveFile(oldPath, newPath);
+                }
+
+                await trackFile(newPath);
                 Alert.alert('Success', `${showrename.title} successful`);
             } else {
-                // Create new folder
                 const fullPath = `${currentPath}/${finalName}`;
                 if (await RNFS.exists(fullPath)) {
                     setError('Folder already exists');
                     return;
                 }
                 await RNFS.mkdir(fullPath);
+                await trackFile(fullPath);
                 Alert.alert('Success', 'Folder created successfully');
             }
 
             await refreshFiles();
             setShowRename({ title: '', value: false, name: '', path: '' });
-        } catch (eror) {
-            console.error('Operation failed:', eror);
-            setError(showrename.title.includes("Rename")
-                ? `Failed to ${showrename.title.toLowerCase()}`
-                : 'Failed to create folder');
+        } catch (errorr) {
+            console.error('Operation failed:', errorr);
+            setError(
+                showrename.title.includes('Rename')
+                    ? `Failed to ${showrename.title.toLowerCase()}`
+                    : 'Failed to create folder'
+            );
         }
     };
 
@@ -142,7 +157,7 @@ const Rename = () => {
                     value={newName}
                     onChangeText={setNewName}
                     style={[styles.input, error ? styles.inputError : null]}
-                    placeholder={`Enter ${showrename.title.includes("Folder") ? 'folder' : 'file'} name`}
+                    placeholder={`Enter ${showrename.title.includes('Folder') ? 'folder' : 'file'} name`}
                     autoFocus={true}
                 />
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -159,11 +174,13 @@ const Rename = () => {
     );
 };
 
-
 const styles = StyleSheet.create({
     overlay: {
         position: 'absolute',
-        top: 0, left: 0, right: 0, bottom: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
@@ -180,7 +197,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         marginBottom: 10,
-        color: 'black'
+        color: 'black',
     },
     input: {
         borderColor: '#999',
@@ -188,7 +205,7 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 6,
         marginBottom: 10,
-        color: 'black'
+        color: 'black',
     },
     inputError: {
         borderColor: 'red',

@@ -8,7 +8,7 @@ import { saveAsImage, saveAsPdf } from '../utils/SaveImageOrPdf';
 const Camera = () => {
     const [loading, setLoading] = useState(false);
     const navigation = useNavigation();
-    const { currentPath } = useFileManagerContext();
+    const { currentPath, trackFile } = useFileManagerContext();
 
     const handleSaveOperation = useCallback(async (type: 'image' | 'pdf', uri: string) => {
         setLoading(true);
@@ -18,9 +18,17 @@ const Camera = () => {
             let result;
 
             if (type === 'image') {
-                result = await saveAsImage(uri, `${currentPath}/${fileName}.jpg`);
+                const filePath = `${currentPath}/${fileName}.jpg`;
+                result = await saveAsImage(uri, filePath);
+                if (result.success) {
+                    await trackFile(filePath);
+                }
             } else {
+                const filePath = `${currentPath}/${fileName}.pdf`;
                 result = await saveAsPdf(uri, fileName, currentPath);
+                if (result.success) {
+                    await trackFile(filePath);
+                }
             }
 
             if (result.success) {
@@ -32,7 +40,7 @@ const Camera = () => {
             setLoading(false);
             navigation.goBack();
         }
-    }, [currentPath, navigation]);
+    }, [currentPath, navigation, trackFile]);
 
     const handleCapture = useCallback(async () => {
         try {
@@ -73,7 +81,7 @@ const Camera = () => {
             Alert.alert('Error', 'Failed to capture image');
             navigation.goBack();
         }
-    },  [navigation, handleSaveOperation]);
+    }, [navigation, handleSaveOperation]);
 
     useEffect(() => {
         handleCapture();

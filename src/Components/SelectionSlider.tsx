@@ -1,13 +1,9 @@
-// SelectionSlider.tsx
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, Alert } from 'react-native';
 import RNFS from 'react-native-fs';
 import FileViewer from 'react-native-file-viewer';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFileManagerContext } from '../FileManagerContext';
-
-// import Pdf from 'react-native-pdf';
-// import ImageResizer from 'react-native-image-resizer';
 
 const SelectionSlider = () => {
     const {
@@ -18,8 +14,9 @@ const SelectionSlider = () => {
         setShowRename,
         refreshFiles,
         currentPath,
-        setCurrentPath,
-        setFileOperation
+        setFileOperation,
+        untrackFile,
+        trackFile
     } = useFileManagerContext();
 
     const handleDelete = async () => {
@@ -36,10 +33,18 @@ const SelectionSlider = () => {
                         text: 'Delete',
                         onPress: async () => {
                             try {
+                                // First untrack all selected files
+                                const untrackPromises = selection.selectedItems.map(item =>
+                                    untrackFile(item.path)
+                                );
+                                await Promise.all(untrackPromises);
+
+                                // Then delete the files
                                 const deletePromises = selection.selectedItems.map(item =>
                                     RNFS.unlink(item.path)
                                 );
                                 await Promise.all(deletePromises);
+
                                 setSelection({ mode: 'none', selectedItems: [] });
                                 setShowOptionsModal(false);
                                 await refreshFiles();
@@ -66,7 +71,7 @@ const SelectionSlider = () => {
                 title: file.isDirectory() ? "Rename Folder" : "Rename File",
                 value: true,
                 name: file.name,
-                path:file.path
+                path: file.path
             });
             setShowOptionsModal(false);
         }
@@ -76,14 +81,14 @@ const SelectionSlider = () => {
         if (selection.selectedItems.every(item => isImage(item))) {
             try {
                 Alert.alert('Info', 'Converting images to PDF...');
-
-                // Create a PDF from images
                 const pdfPath = `${currentPath}/converted_${Date.now()}.pdf`;
-                // Note: Actual PDF creation would require a native module or external service
-                // This is a placeholder implementation
 
-                // For demo purposes, we'll just create an empty file
+                // Create PDF (implementation depends on your PDF library)
+                // This is just a placeholder
                 await RNFS.writeFile(pdfPath, '', 'base64');
+
+                // Track the new PDF file
+                await trackFile(pdfPath);
 
                 Alert.alert('Success', 'PDF created successfully');
                 await refreshFiles();
@@ -95,64 +100,6 @@ const SelectionSlider = () => {
             }
         }
     };
-
-    // const handleConvertToImage = async () => {
-    //     if (selection.selectedItems.length === 1 && isPdf(selection.selectedItems[0])) {
-    //         try {
-    //             Alert.alert('Info', 'Converting PDF to images...');
-    //             const pdfFile = selection.selectedItems[0];
-
-    //             // Extract images from PDF
-    //             // Note: Actual PDF extraction would require a native module
-    //             // This is a placeholder implementation
-
-    //             // For demo, we'll just create a dummy image
-    //             const imagePath = `${currentPath}/extracted_page_1.jpg`;
-    //             await RNFS.writeFile(imagePath, '', 'base64');
-
-    //             Alert.alert('Success', 'Images extracted successfully');
-    //             await refreshFiles();
-    //             setSelection({ mode: 'none', selectedItems: [] });
-    //             setShowOptionsModal(false);
-    //         } catch (error) {
-    //             console.error('Error converting to images:', error);
-    //             Alert.alert('Error', 'Failed to convert PDF to images');
-    //         }
-    //     }
-    // };
-
-    // const handleCompress = async () => {
-    //     if (selection.selectedItems.length === 1 && isImage(selection.selectedItems[0])) {
-    //         try {
-    //             Alert.alert('Info', 'Compressing image...');
-    //             const imageFile = selection.selectedItems[0];
-
-    //             // Compress the image
-    //             const result = await ImageResizer.createResizedImage(
-    //                 imageFile.path,
-    //                 800, // width
-    //                 800, // height
-    //                 'JPEG', // format
-    //                 70, // quality (0-100)
-    //                 0, // rotation
-    //                 null, // outputPath (null to generate a new path)
-    //                 false // keep metadata
-    //             );
-
-    //             // Create new filename
-    //             const compressedPath = `${currentPath}/compressed_${imageFile.name}`;
-    //             await RNFS.moveFile(result.uri, compressedPath);
-
-    //             Alert.alert('Success', 'Image compressed successfully');
-    //             await refreshFiles();
-    //             setSelection({ mode: 'none', selectedItems: [] });
-    //             setShowOptionsModal(false);
-    //         } catch (error) {
-    //             console.error('Error compressing image:', error);
-    //             Alert.alert('Error', 'Failed to compress image');
-    //         }
-    //     }
-    // };
 
     const handleOpenWith = async () => {
         if (selection.selectedItems.length === 1 && !selection.selectedItems[0].isDirectory()) {
@@ -174,7 +121,6 @@ const SelectionSlider = () => {
     };
 
     const handleMove = () => {
-        const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/myapp`;
         setFileOperation({
             type: 'move',
             visible: true,
@@ -182,12 +128,9 @@ const SelectionSlider = () => {
         });
         setShowOptionsModal(false);
         setSelection({ mode: 'none', selectedItems: [] });
-        setCurrentPath(appRootPath);
-
     };
 
     const handleCopy = () => {
-        const appRootPath = `${RNFS.ExternalStorageDirectoryPath}/Download/myapp`;
         setFileOperation({
             type: 'copy',
             visible: true,
@@ -195,9 +138,6 @@ const SelectionSlider = () => {
         });
         setShowOptionsModal(false);
         setSelection({ mode: 'none', selectedItems: [] });
-        setCurrentPath(appRootPath);
-        
-
     };
 
     const isImage = (file: RNFS.ReadDirItem) => {

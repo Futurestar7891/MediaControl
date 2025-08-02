@@ -1,11 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import  { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Animated } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useFileManagerContext } from '../FileManagerContext';
 
 const Filters = () => {
     const slideAnim = useRef(new Animated.Value(300)).current;
-    const { filter, setFilter, refreshFiles } = useFileManagerContext();
+    const { filter, setFilter, } = useFileManagerContext();
 
     useEffect(() => {
         Animated.timing(slideAnim, {
@@ -43,12 +43,12 @@ const Filters = () => {
             <View style={styles.btncontainer}>
                 <TouchableOpacity onPress={toggleViewMode} style={styles.btn}>
                     <Ionicons
-                        name={filter.fileMode === 'list' ? 'list' : 'grid'}
+                        name={filter.fileMode === 'list' ? 'grid' : 'list'}
                         size={24}
                         color="#ffffff"
                     />
                     <Text style={[styles.optionText, styles.activeText]}>
-                        {filter.fileMode === 'list' ? 'List View' : 'Icon View'}
+                        {filter.fileMode === 'list' ? 'Icon View' : 'List View'}
                     </Text>
                 </TouchableOpacity>
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import RNFS from 'react-native-fs';
 import { Platform, Linking, Alert } from 'react-native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
@@ -44,6 +44,10 @@ export type FileManagerContextType = {
     setFileOperation: React.Dispatch<React.SetStateAction<FileOperation>>;
     filter: FilterState;
     setFilter: React.Dispatch<React.SetStateAction<FilterState>>;
+    trackFile: (path: string) => Promise<void>;
+    untrackFile: (path: string) => Promise<void>;
+    isTrackedFile: (path: string) => Promise<boolean>;
+    getTrackedFiles: () => Promise<string[]>;
 };
 
 export const FileManagerContext = createContext<FileManagerContextType | undefined>(undefined);
@@ -81,6 +85,50 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
         sortMode: 'a-z',
         showFilter: false
     });
+
+    const TRACKED_FILES_KEY = '@FileManager/trackedFiles';
+
+    const trackFile = async (path: string) => {
+        try {
+            const trackedFiles = await getTrackedFiles();
+            if (!trackedFiles.includes(path)) {
+                const newTrackedFiles = [...trackedFiles, path];
+                await AsyncStorage.setItem(TRACKED_FILES_KEY, JSON.stringify(newTrackedFiles));
+            }
+        } catch (error) {
+            console.error('Error tracking file:', error);
+        }
+    };
+
+    const untrackFile = async (path: string) => {
+        try {
+            const trackedFiles = await getTrackedFiles();
+            const newTrackedFiles = trackedFiles.filter(filePath => filePath !== path);
+            await AsyncStorage.setItem(TRACKED_FILES_KEY, JSON.stringify(newTrackedFiles));
+        } catch (error) {
+            console.error('Error untracking file:', error);
+        }
+    };
+
+    const isTrackedFile = async (path: string) => {
+        try {
+            const trackedFiles = await getTrackedFiles();
+            return trackedFiles.includes(path);
+        } catch (error) {
+            console.error('Error checking tracked file:', error);
+            return false;
+        }
+    };
+
+    const getTrackedFiles = async (): Promise<string[]> => {
+        try {
+            const trackedFiles = await AsyncStorage.getItem(TRACKED_FILES_KEY);
+            return trackedFiles ? JSON.parse(trackedFiles) : [];
+        } catch (error) {
+            console.error('Error getting tracked files:', error);
+            return [];
+        }
+    };
 
     const requestStoragePermissions = async () => {
         if (Platform.OS === 'android') {
@@ -183,7 +231,11 @@ export const FileManagerContextProvider = ({ children }: { children: React.React
             fileOperation,
             setFileOperation,
             filter,
-            setFilter
+            setFilter,
+            trackFile,
+            untrackFile,
+            isTrackedFile,
+            getTrackedFiles
         }}>
             {children}
         </FileManagerContext.Provider>

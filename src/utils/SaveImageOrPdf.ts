@@ -1,8 +1,5 @@
-// 📄 utils/saveImageOrPdf.ts
-// import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { createPdf } from 'react-native-pdf-from-image';
-// import { savePdfToMediaStore } from './savePdfToMediaStore';
 
 type SaveResult = {
   success: boolean;
@@ -40,8 +37,6 @@ export const saveAsPdf = async (
     });
 
     const finalPath = `${targetPath}/${pdfName}.pdf`;
-
-    // Simply copy the file to destination (works for both platforms)
     await RNFS.copyFile(pdfCachePath, finalPath);
 
     return { success: true, filePath: finalPath };

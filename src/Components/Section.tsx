@@ -1,4 +1,3 @@
-// Update the Section component
 import React, { useState, useCallback } from 'react';
 import {
     View,
@@ -8,14 +7,14 @@ import {
     TouchableOpacity,
     Alert,
     RefreshControl,
+    Image
 } from 'react-native';
 import RNFS from 'react-native-fs';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFileManagerContext } from '../FileManagerContext';
 import FileViewer from "react-native-file-viewer";
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { getFileIcon,FileIcon } from '../utils/SectionHelper';
-
+import { getFileIcon, FileIcon } from '../utils/SectionHelper';
 
 const Section = () => {
     const {
@@ -27,13 +26,12 @@ const Section = () => {
         setSelection,
         setShowOptionsModal,
         setFilter,
-        filter
+        filter,
+        isTrackedFile
     } = useFileManagerContext();
     const [files, setFiles] = useState<RNFS.ReadDirItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [fileIcons, setFileIcons] = useState<Record<string, FileIcon>>({});
-
-
 
     const loadFiles = async (path: string) => {
         try {
@@ -43,10 +41,18 @@ const Section = () => {
             }
 
             let fileList = await RNFS.readDir(path);
-            const getTimeSafe = (file: RNFS.ReadDirItem) => file.mtime?.getTime() ?? 0;
-            // Sorting logic based on filter.sortMode
-            fileList = fileList.sort((a, b) => {
-                // Folders always on top
+            console.log("original",fileList);
+
+            // Filter files to only show tracked ones and directories
+            const filteredFiles = [];
+            for (const file of fileList) {
+                if (file.isDirectory() || await isTrackedFile(file.path)) {
+                    filteredFiles.push(file);
+                }
+            }
+
+            // Sorting logic
+            fileList = filteredFiles.sort((a, b) => {
                 if (a.isDirectory() && !b.isDirectory()) return -1;
                 if (!a.isDirectory() && b.isDirectory()) return 1;
 
@@ -56,16 +62,16 @@ const Section = () => {
                     case 'z-a':
                         return b.name.localeCompare(a.name);
                     case 'newest':
-                        return getTimeSafe(b) - getTimeSafe(a);
+                        return (b.mtime?.getTime() || 0) - (a.mtime?.getTime() || 0);
                     case 'oldest':
-                        return getTimeSafe(a) - getTimeSafe(b);
+                        return (a.mtime?.getTime() || 0) - (b.mtime?.getTime() || 0);
                     default:
                         return 0;
                 }
             });
 
             setFiles(fileList);
-
+            console.log("filtered",fileList);
             // Load icons for each file
             const iconMap: Record<string, FileIcon> = {};
             await Promise.all(
@@ -81,15 +87,11 @@ const Section = () => {
         }
     };
 
-
-
-
     useFocusEffect(
         useCallback(() => {
             loadFiles(currentPath);
             setSelection({ mode: 'none', selectedItems: [] });
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [currentPath, refreshkey,filter.sortMode])
+        }, [currentPath, refreshkey, filter.sortMode])
     );
 
     const onRefresh = async () => {
@@ -100,7 +102,6 @@ const Section = () => {
 
     const handleFilePress = async (file: RNFS.ReadDirItem) => {
         if (selection.mode !== 'none') {
-            // In selection mode, toggle selection instead of opening
             toggleSelection(file);
             return;
         }
@@ -123,7 +124,6 @@ const Section = () => {
     };
 
     const handleFileLongPress = (file: RNFS.ReadDirItem) => {
-        // Start selection mode if not already in it
         if (selection.mode === 'none') {
             setSelection({
                 mode: 'single',
@@ -154,36 +154,8 @@ const Section = () => {
     const isSelected = (file: RNFS.ReadDirItem) => {
         return selection.selectedItems.some(item => item.path === file.path);
     };
-    //     if (file.isDirectory()) {
-    //         return <Ionicons name="folder" size={24} color="#FFD54F" />;
-    //     }
 
-    //     const extension = file.name.split('.').pop()?.toLowerCase();
-    //     switch (extension) {
-    //         case 'jpg': case 'jpeg': case 'png': case 'gif': case 'webp':
-    //             return <Ionicons name="image" size={24} color="#4FC3F7" />;
-    //         case 'pdf':
-    //             return <Ionicons name="document" size={24} color="#F44336" />;
-    //         case 'mp3': case 'wav': case 'aac': case 'flac':
-    //             return <Ionicons name="musical-notes" size={24} color="#9C27B0" />;
-    //         case 'mp4': case 'mov': case 'avi': case 'mkv':
-    //             return <Ionicons name="film" size={24} color="#7B1FA2" />;
-    //         case 'txt': case 'md':
-    //             return <Ionicons name="document-text" size={24} color="#78909C" />;
-    //         case 'doc': case 'docx':
-    //             return <Ionicons name="document" size={24} color="#1976D2" />;
-    //         case 'xls': case 'xlsx':
-    //             return <Ionicons name="document" size={24} color="#388E3C" />;
-    //         case 'ppt': case 'pptx':
-    //             return <Ionicons name="document" size={24} color="#F57C00" />;
-    //         case 'zip': case 'rar': case '7z':
-    //             return <Ionicons name="archive" size={24} color="#795548" />;
-    //         default:
-    //             return <Ionicons name="document" size={24} color="#9E9E9E" />;
-    //     }
-    // };
-
-    const renderItem = ({ item }: { item: RNFS.ReadDirItem }) => (
+    const renderList = ({ item }: { item: RNFS.ReadDirItem }) => (
         <TouchableOpacity
             style={[
                 styles.fileItem,
@@ -191,7 +163,7 @@ const Section = () => {
             ]}
             onPress={() => handleFilePress(item)}
             onLongPress={() => handleFileLongPress(item)}
-            delayLongPress={500} // 0.5 second delay for long press
+            delayLongPress={500}
         >
             {selection.mode !== 'none' && (
                 <Ionicons
@@ -211,6 +183,50 @@ const Section = () => {
             <Text style={styles.fileText}>{item.name}</Text>
         </TouchableOpacity>
     );
+
+    const renderIcon = ({ item }: { item: RNFS.ReadDirItem }) => {
+        const icon = fileIcons[item.path];
+        const imageSource = typeof icon?.source === 'string'
+            ? { uri: icon.source }
+            : icon?.source;
+
+        return (
+            <View style={styles.gridItemWrapper}>
+                <TouchableOpacity
+                    style={[
+                        styles.gridItemContainer,
+                        isSelected(item) && styles.selectedFileItem
+                    ]}
+                    onPress={() => handleFilePress(item)}
+                    onLongPress={() => handleFileLongPress(item)}
+                    delayLongPress={500}
+                >
+                    <View style={styles.imageContainer}>
+                        <Image
+                            style={styles.gridImage}
+                            source={imageSource || require('../assets/icon.png')}
+                            defaultSource={require('../assets/icon.png')}
+                            onError={() => console.log('Error loading image for:', item.name)}
+                        />
+
+                        {selection.mode !== 'none' && (
+                            <Ionicons
+                                name={isSelected(item) ? "checkbox" : "square-outline"}
+                                size={24}
+                                color={isSelected(item) ? "#4CAF50" : "#000"}
+                                style={styles.gridSelectionIcon}
+                            />
+                        )}
+
+                        <Text style={styles.gridFileText} numberOfLines={1}>
+                            {item.name}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
 
     const navigateUp = () => {
         if (currentPath !== appRootPath) {
@@ -252,8 +268,8 @@ const Section = () => {
                     {currentPath.replace(appRootPath, 'Docify')}
                 </Text>
                 {selection.mode === 'none' ? (
-                    <TouchableOpacity onPress={()=>setFilter((prev)=>({
-                        ...prev,showFilter:true
+                    <TouchableOpacity onPress={() => setFilter((prev) => ({
+                        ...prev, showFilter: true
                     }))} style={styles.sortButton}>
                         <Ionicons name="filter" size={20} color="#555" />
                     </TouchableOpacity>
@@ -272,12 +288,14 @@ const Section = () => {
             </View>
 
             <FlatList
+                key={filter.fileMode}
                 data={files}
-                renderItem={renderItem}
+                renderItem={filter.fileMode === "list" ? renderList : renderIcon}
                 keyExtractor={(item) => item.path}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
+                numColumns={filter.fileMode === "list" ? 1 : 3}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
@@ -330,7 +348,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     listContent: {
-        padding: 16,
+        padding: 8,
     },
     emptyContainer: {
         flex: 1,
@@ -370,6 +388,57 @@ const styles = StyleSheet.create({
         color: '#333',
         flex: 1,
     },
-});
+    // Grid view styles
+    gridItemWrapper: {
+        width: '33.33%', // Exactly 3 items per row
+        padding: 4,
+    },
+    gridItemContainer: {
+        width: '100%',
+        aspectRatio: 1 / 1, // Square container
+        backgroundColor: '#fff',
+        borderRadius: 2,
+        overflow: 'hidden',
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 5,
+        padding:2
+    },
+    imageContainer: {
+        width: "100%",
+        aspectRatio: 1 / 1,
+        position: 'relative',
+        alignItems: "center",
+      
 
+    },
+    gridImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    gridSelectionIcon: {
+        position: 'absolute',
+        top: 8,
+        left: 8,
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+        borderRadius: 4,
+    },
+    gridFileText: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'transparent',
+        color: 'black',
+        fontWeight: '900',
+        fontSize: 12,
+        textAlign: 'center',
+    },
+});
 export default Section;
